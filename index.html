@@ -1,0 +1,1549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Epoch Breakers - Prototype</title>
+<style>
+  body{margin:0;background:#0b0b14;color:#e8e8f0;font-family:'Segoe UI',system-ui,sans-serif;display:flex;justify-content:center;}
+  #wrap{position:relative;width:960px;margin-top:12px;user-select:none;}
+  canvas{display:block;background:#000;border-radius:6px 6px 0 0;}
+  #panel{display:flex;gap:10px;background:#151526;border:1px solid #2a2a44;border-top:none;border-radius:0 0 6px 6px;padding:10px;min-height:150px;box-sizing:border-box;}
+  #party{display:flex;gap:8px;}
+  .card{width:150px;background:#1d1d33;border:2px solid #2c2c4a;border-radius:6px;padding:6px 8px;cursor:pointer;transition:border-color .15s,box-shadow .15s;}
+  .card.ready{border-color:#ffd54a;box-shadow:0 0 10px #ffd54a66;}
+  .card.active{border-color:#fff;box-shadow:0 0 14px #ffffffaa;}
+  .card.ko{opacity:.45;}
+  .card .nm{font-weight:700;display:flex;justify-content:space-between;align-items:center;}
+  .card .el{font-size:10px;letter-spacing:1px;opacity:.8;}
+  .bar{height:7px;background:#0c0c18;border-radius:4px;overflow:hidden;margin-top:4px;}
+  .bar>div{height:100%;}
+  .hp>div{background:#4ade80;} .mp>div{background:#60a5fa;} .atb>div{background:#facc15;}
+  .small{font-size:11px;color:#a8a8c8;display:flex;justify-content:space-between;margin-top:2px;}
+  #menu{flex:1;display:flex;flex-wrap:wrap;align-content:flex-start;gap:6px;}
+  #menu .hint{width:100%;font-size:13px;color:#c8c8e0;}
+  .dim{color:#8888aa;}
+  button{background:#26264a;color:#eee;border:1px solid #3d3d6e;border-radius:5px;padding:6px 10px;font-size:13px;cursor:pointer;font-family:inherit;}
+  button:hover:not(:disabled){background:#33336a;border-color:#7070c0;}
+  button:disabled{opacity:.4;cursor:default;}
+  button.combo{border-color:#b07cff;}
+  button.combo.new{border-style:dashed;}
+  button.mode{margin-left:auto;border-color:#555;}
+  button .sub{display:block;font-size:10px;opacity:.7;}
+  .key{opacity:.55;font-size:11px;margin-right:5px;}
+  .overlay{position:absolute;left:0;top:0;width:960px;height:640px;background:rgba(5,5,15,.9);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;border-radius:6px 6px 0 0;box-sizing:border-box;padding:30px;}
+  .hidden{display:none !important;}
+  h1{font-size:56px;margin:0 0 6px;letter-spacing:5px;background:linear-gradient(90deg,#ff6a3d,#ffe94a,#7fe3ff,#f2a8ff);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  h2{margin:0 0 10px;font-size:32px;}
+  .overlay p{max-width:640px;color:#c0c0d8;line-height:1.5;margin:6px 0;}
+  .overlay button{font-size:16px;padding:10px 22px;margin:8px;}
+  .opts{display:flex;flex-wrap:wrap;justify-content:center;gap:16px;margin:18px 0;}
+  .opt{width:205px;min-height:150px;text-align:left;padding:14px !important;margin:0 !important;display:flex;flex-direction:column;gap:6px;}
+  .opt .t{font-size:18px;font-weight:700;}
+  .opt .d{font-size:13px;opacity:.85;line-height:1.4;}
+  .codex-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;width:760px;max-height:430px;overflow:auto;margin:10px 0;}
+  .cx{background:#1b1b30;border:1px solid #3a3a60;border-radius:6px;padding:8px 10px;text-align:left;}
+  .cx.unk{opacity:.5;border-style:dashed;}
+  .cx-n{font-weight:700;font-size:15px;}
+  .cx-m,.cx-d{font-size:12px;color:#b0b0cc;}
+  .card .pas{font-size:10px;color:#9fb8ff;margin-top:1px;}
+  .card .buffs{display:flex;gap:6px;font-size:10px;min-height:13px;}
+  #tip{position:fixed;z-index:10;max-width:290px;background:#10101f;border:1px solid #4a4a7a;border-radius:6px;padding:8px 10px;font-size:12px;line-height:1.45;color:#d8d8ee;pointer-events:none;box-shadow:0 4px 18px #000a;}
+  #tip .tt-h{display:flex;justify-content:space-between;gap:12px;font-size:14px;margin-bottom:2px;}
+  #tip .tt-mp{color:#7cb8ff;font-size:12px;white-space:nowrap;}
+  #tip .tt-sub{color:#b07cff;margin-bottom:4px;}
+  #tip .tt-facts{margin-top:5px;padding-top:5px;border-top:1px solid #2a2a48;}
+  #tip .tt-pas{margin-top:5px;color:#9fb8ff;}
+  #tip .tt-ok{color:#4ade80;} #tip .tt-warn{color:#facc15;} #tip .tt-bad{color:#f87171;}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="cv" width="960" height="640"></canvas>
+  <div id="panel"><div id="party"></div><div id="menu"></div></div>
+
+  <div id="title" class="overlay">
+    <h1>EPOCH BREAKERS</h1>
+    <p class="dim">A time-hopping ATB roguelite prototype</p>
+    <p>Draft your heroes, then explore three eras. Battles happen right where you touch an enemy. Gauges fill in real time.
+      Let two or three heroes be ready at once to unleash <b>Dual</b> and <b>Triple Techs</b>, and discover them all across runs.
+      Area techs depend on where enemies are standing, so time your blasts for when they bunch up.</p>
+    <p class="dim">Move: WASD / Arrows &nbsp;·&nbsp; Battle: click buttons or 1-9, click to target, Esc / right-click cancel, Tab switch hero &nbsp;·&nbsp; C: Codex</p>
+    <p id="stats" class="dim"></p>
+    <div><button id="startBtn">Start Run</button><button id="codexBtn">Codex</button></div>
+  </div>
+
+  <div id="reward" class="overlay hidden"></div>
+  <div id="end" class="overlay hidden"></div>
+  <div id="codex" class="overlay hidden"></div>
+</div>
+<div id="tip" class="hidden"></div>
+
+<script>
+// ================= constants & data =================
+const TILE = 32, COLS = 30, ROWS = 20, W = COLS * TILE, H = ROWS * TILE;
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+
+const ELEM_COLOR = { fire:'#ff6a3d', ice:'#7fe3ff', earth:'#d9a85a', bolt:'#ffe94a', light:'#ffc4ff', sound:'#5eead4', none:'#ffffff' };
+const ELEM_NAME = { fire:'Fire', ice:'Ice', earth:'Earth', bolt:'Bolt', light:'Light', sound:'Sound' };
+const BUFFS = {
+  might: { name:'Might', color:'#ff9f43', desc:'+30% damage' },
+  haste: { name:'Haste', color:'#5eead4', desc:'+40% gauge speed' },
+};
+
+const CHARS = {
+  kai:  { name:'Kai',  color:'#e8573c', elem:'fire',  hp:120, mp:20, atk:14, mag:8,  def:4, spd:10, techs:['flameslash','cyclone'],
+          role:'Swordsman', passive:{ name:'Battle Rhythm', desc:'Landing a basic Attack restores 5 MP.' } },
+  mira: { name:'Mira', color:'#5cc8ff', elem:'ice',   hp:90,  mp:40, atk:7,  mag:15, def:3, spd:11, techs:['icicle','cure'],
+          role:'Frost Mage', passive:{ name:'Meditation', desc:'Regenerates 1 MP every 2 seconds during battle.' } },
+  rook: { name:'Rook', color:'#c9a24a', elem:'earth', hp:160, mp:22, atk:16, mag:6,  def:7, spd:7,  techs:['quake','guard'],
+          role:'Guardian', passive:{ name:'Stoneheart', desc:'Taking a hit restores 3 MP (even while guarding).' } },
+  zed:  { name:'Zed',  color:'#f5e050', elem:'bolt',  hp:100, mp:30, atk:12, mag:12, def:3, spd:13, techs:['boltline','shock'],
+          role:'Gunner', passive:{ name:'Overcharge', desc:'Restores 2 MP for every enemy hit by his solo actions. Line up crowds!' } },
+  lyra: { name:'Lyra', color:'#5eead4', elem:'sound', hp:95,  mp:36, atk:9,  mag:12, def:3, spd:12, techs:['valor','allegro'],
+          role:'Bard', passive:{ name:'Encore', desc:'Restores 2 MP whenever a buffed ally acts.' } },
+  lumi: { name:'Lumi', color:'#f2a8ff', elem:'light', hp:95,  mp:40, atk:8,  mag:13, def:3, spd:10, techs:['prism','radiance'],
+          role:'Cleric', passive:{ name:'Devotion', desc:'Restores 3 MP whenever an ally uses a tech or combo without her.' } },
+};
+
+const TECHS = {
+  attack:     { name:'Attack',      mp:0, shape:'single', stat:'atk', pow:1.1, elem:null,    anim:'dash', desc:'Dash in and strike one enemy.' },
+  flameslash: { name:'Flame Slash', mp:3, shape:'single', stat:'atk', pow:1.7, elem:'fire',  anim:'dash', desc:'A blazing sword strike.' },
+  cyclone:    { name:'Cyclone',     mp:5, shape:'self',   radius:95, stat:'atk', pow:1.2, elem:null, desc:'Spin attack that hits every enemy near Kai.' },
+  icicle:     { name:'Icicle',      mp:3, shape:'single', stat:'mag', pow:1.7, elem:'ice', desc:'Launch a shard of ice.' },
+  cure:       { name:'Cure',        mp:4, shape:'ally',   stat:'mag', pow:2.2, heal:true, desc:'Heal one ally. Can revive a KO\'d ally.' },
+  quake:      { name:'Quake',       mp:5, shape:'circle', radius:85, stat:'atk', pow:1.2, elem:'earth', desc:'Slam the ground around the target.' },
+  guard:      { name:'Guard',       mp:3, shape:'selfbuff', shield:8, desc:'Halve incoming damage for 8 seconds. Pairs well with Stoneheart.' },
+  boltline:   { name:'Bolt Line',   mp:4, shape:'line',   width:30, stat:'mag', pow:1.4, elem:'bolt', desc:'Fire a bolt that pierces everything in a line.' },
+  shock:      { name:'Shock',       mp:3, shape:'single', stat:'mag', pow:1.6, elem:'bolt', desc:'A focused jolt of lightning.' },
+  prism:      { name:'Prism',       mp:3, shape:'single', stat:'mag', pow:1.6, elem:'light', desc:'A beam of refracted light.' },
+  radiance:   { name:'Radiance',    mp:8, shape:'allies', stat:'mag', pow:1.3, heal:true, desc:'Heal every living ally.' },
+  valor:      { name:'Anthem of Valor', mp:5, shape:'party', buffAll:{ might:10 }, desc:'A rousing song that grants the whole party Might.' },
+  allegro:    { name:'Allegro',     mp:5, shape:'party', buffAll:{ haste:10 }, desc:'An upbeat tempo that grants the whole party Haste.' },
+};
+
+const COMBOS = [
+  { id:'kai+mira',  m:['kai','mira'],  name:'Frostfire Blade', mp:4, shape:'single', pow:4.4, elem:['fire','ice'], anim:'dash', desc:'Massive single hit' },
+  { id:'kai+zed',   m:['kai','zed'],   name:'Thunder Edge',    mp:4, shape:'line', width:44, pow:2.7, elem:['fire','bolt'], desc:'Piercing line' },
+  { id:'kai+rook',  m:['kai','rook'],  name:'Meteor Drop',     mp:5, shape:'circle', radius:110, pow:2.5, elem:['fire','earth'], desc:'Large blast' },
+  { id:'kai+lumi',  m:['kai','lumi'],  name:'Dawn Strike',     mp:5, shape:'all', pow:1.7, elem:['light','fire'], healPct:.15, desc:'Hits all, heals party' },
+  { id:'mira+zed',  m:['mira','zed'],  name:'Storm Shards',    mp:5, shape:'all', pow:1.9, elem:['ice','bolt'], desc:'Hits all enemies' },
+  { id:'mira+rook', m:['mira','rook'], name:'Glacier Fall',    mp:5, shape:'circle', radius:130, pow:2.4, elem:['ice','earth'], desc:'Huge blast' },
+  { id:'mira+lumi', m:['mira','lumi'], name:'Aurora',          mp:6, shape:'allies', pow:2.2, heal:true, shieldAll:6, desc:'Heal all + barrier' },
+  { id:'rook+zed',  m:['rook','zed'],  name:'Railgun',         mp:5, shape:'line', width:36, pow:3.4, elem:['earth','bolt'], desc:'Devastating line' },
+  { id:'rook+lumi', m:['rook','lumi'], name:'Holy Wall',       mp:5, shape:'party', shieldAll:12, healPct:.2, desc:'Long barrier + heal' },
+  { id:'zed+lumi',  m:['zed','lumi'],  name:'Prism Beam',      mp:5, shape:'line', width:40, pow:2.9, elem:['bolt','light'], desc:'Radiant line' },
+  { id:'kai+mira+zed',  m:['kai','mira','zed'],  name:'Delta Storm', mp:8, shape:'all', pow:3.4, elem:['fire','ice','bolt'], desc:'Elemental storm' },
+  { id:'kai+rook+lumi', m:['kai','rook','lumi'], name:'Sunforge',    mp:8, shape:'circle', radius:170, pow:3.8, elem:['fire','earth','light'], desc:'Solar impact' },
+  { id:'mira+zed+lumi', m:['mira','zed','lumi'], name:'Starfall',    mp:8, shape:'all', pow:3.0, elem:['ice','bolt','light'], healPct:.25, desc:'Stars + healing' },
+  { id:'kai+rook+zed',  m:['kai','rook','zed'],  name:'Omega Crush', mp:8, shape:'line', width:60, pow:4.4, elem:['fire','earth','bolt'], desc:'Unstoppable line' },
+  { id:'kai+lyra',  m:['kai','lyra'],  name:'Power Chord',     mp:5, shape:'line', width:40, pow:2.6, elem:['fire','sound'], buffAll:{ might:8 }, desc:'Searing line, then party Might' },
+  { id:'mira+lyra', m:['mira','lyra'], name:'Frozen Lullaby',  mp:5, shape:'all', pow:1.5, elem:['ice','sound'], stagger:50, desc:'Hits all and drains enemy gauges' },
+  { id:'rook+lyra', m:['rook','lyra'], name:'War Drum',        mp:5, shape:'circle', radius:120, pow:2.2, elem:['earth','sound'], buffAll:{ haste:8 }, desc:'Shockwave, then party Haste' },
+  { id:'zed+lyra',  m:['zed','lyra'],  name:'Thunder Riff',    mp:5, shape:'line', width:36, pow:2.9, elem:['bolt','sound'], stagger:35, desc:'Piercing line that staggers' },
+  { id:'lumi+lyra', m:['lumi','lyra'], name:'Choir of Light',  mp:6, shape:'party', healPct:.3, buffAll:{ might:8 }, desc:'Big heal + party Might' },
+  { id:'kai+rook+lyra',  m:['kai','rook','lyra'],  name:'Grand Finale',    mp:8, shape:'all', pow:3.2, elem:['fire','earth','sound'], buffAll:{ might:10, haste:10 }, desc:'Hits all, then Might + Haste' },
+  { id:'mira+lumi+lyra', m:['mira','lumi','lyra'], name:'Requiem of Dawn', mp:8, shape:'all', pow:2.6, elem:['ice','light','sound'], healPct:.3, stagger:40, desc:'Hits all, heals, staggers' },
+];
+
+const ENEMIES = {
+  raptor: { name:'Raptor',       color:'#8fcf4f', shape:'tri',     hp:55,   atk:11, def:1, spd:13, r:13, weak:'ice',   resist:'fire',  ai:'scatter' },
+  beetle: { name:'Bulbeetle',    color:'#5f9e46', shape:'round',   hp:75,   atk:9,  def:4, spd:8,  r:15, weak:'fire',  resist:'earth', ai:'cluster' },
+  rex:    { name:'Tyrant Rex',   color:'#b5542f', shape:'tri',     hp:400,  atk:18, def:4, spd:8,  r:30, weak:'ice',   resist:'fire',  ai:'still', boss:true, aoeName:'Tail Quake' },
+  knight: { name:'Rust Knight',  color:'#9aa3b5', shape:'square',  hp:100,  atk:13, def:7, spd:8,  r:15, weak:'bolt',  resist:'earth', ai:'cluster' },
+  imp:    { name:'Grave Imp',    color:'#a066d6', shape:'wing',    hp:65,   atk:13, def:2, spd:14, r:12, weak:'light', resist:'ice',   ai:'scatter' },
+  wraith: { name:'Wraith King',  color:'#6a3fa0', shape:'wing',    hp:700,  atk:22, def:6, spd:9,  r:30, weak:'light', resist:'ice',   ai:'still', boss:true, aoeName:'Soul Nova' },
+  drone:  { name:'Seeker Drone', color:'#58c4d6', shape:'diamond', hp:85,   atk:15, def:3, spd:15, r:12, weak:'bolt',  resist:'light', ai:'scatter' },
+  mech:   { name:'Siege Mech',   color:'#7a8794', shape:'square',  hp:150,  atk:17, def:9, spd:7,  r:17, weak:'earth', resist:'fire',  ai:'cluster' },
+  omega:  { name:'Omega Core',   color:'#e04a5a', shape:'diamond', hp:1000, atk:25, def:8, spd:9,  r:32, weak:'earth', resist:'bolt',  ai:'still', boss:true, aoeName:'Overload' },
+};
+
+const ERAS = [
+  { name:'65,000,000 B.C.', sub:'The Primeval Age',  floor:['#3c5a2a','#42622e'], wall:'#22341a', obs:'tree',   enemies:['raptor','beetle'], boss:'rex' },
+  { name:'600 A.D.',        sub:'The Kingdom Age',   floor:['#5a5650','#615d56'], wall:'#2e2b28', obs:'pillar', enemies:['knight','imp'],    boss:'wraith' },
+  { name:'2300 A.D.',       sub:'The Ruined Future', floor:['#2a3442','#2f3a49'], wall:'#151b24', obs:'crate',  enemies:['drone','mech'],    boss:'omega' },
+];
+const ROOMS_PER_ERA = 3;
+
+// ================= save =================
+const SAVE_KEY = 'epochbreakers_v1';
+const DEFAULT_SAVE = { codex:[], weak:[], runs:0, wins:0, best:0 };
+let save = loadSave();
+function loadSave(){
+  try { return Object.assign({}, DEFAULT_SAVE, JSON.parse(localStorage.getItem(SAVE_KEY) || '{}')); }
+  catch(e){ return { ...DEFAULT_SAVE }; }
+}
+function persist(){ localStorage.setItem(SAVE_KEY, JSON.stringify(save)); }
+
+// ================= helpers =================
+const rand = (a,b) => a + Math.random() * (b - a);
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const dist = (a,b) => Math.hypot(a.x - b.x, a.y - b.y);
+const centroid = l => { let x = 0, y = 0; for (const p of l) { x += p.x; y += p.y; } return { x:x / l.length, y:y / l.length }; };
+const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const elemsOf = def => Array.isArray(def.elem) ? def.elem : (def.elem ? [def.elem] : []);
+
+let timers = [];
+function wait(s){ return new Promise(r => timers.push({ t:s, r })); }
+function tweenTo(e, x, y, dur){
+  if (e.tween) e.tween.res();
+  return new Promise(res => { e.tween = { fx:e.x, fy:e.y, tx:x, ty:y, t:0, dur, res }; });
+}
+
+// ================= state =================
+let state = 'title';
+let run = null;
+let grid = [], enemies = [], gateOpen = false, isBossRoom = false;
+let trail = [], grace = 0;
+let battle = null;
+let effects = [], texts = [], banner = null, techBanner = null, shake = 0, T = 0;
+let keys = {}, mouse = { x:-999, y:-999 };
+let waitMode = false, previewDef = null, codexOpen = false;
+let roomCv = document.createElement('canvas');
+let cardRefs = [], menuButtons = [], lastSig = '';
+
+function makeMember(id){
+  const c = CHARS[id], b = run.bonus;
+  const m = {
+    id, name:c.name, color:c.color, isParty:true, r:12,
+    maxhp:c.hp + b.hp, maxmp:c.mp + b.mp,
+    atk:Math.round(c.atk * b.pow), mag:Math.round(c.mag * b.pow),
+    def:c.def + b.def, spd:c.spd + b.spd, techs:c.techs,
+    x:0, y:0, atb:0, queued:false, shield:0, buffs:{}, face:{ x:1, y:0 }, tween:null,
+  };
+  m.hp = m.maxhp; m.mp = m.maxmp;
+  return m;
+}
+
+function makeEnemy(type, x, y, scale){
+  const d = ENEMIES[type];
+  const e = { ...d, type, x, y, maxhp:Math.round(d.hp * scale), atk:Math.round(d.atk * (1 + (scale - 1) * 0.6)),
+    atb:Math.random() * 40, queued:false, wander:{ dx:0, dy:0, t:0 }, moveT:2, tween:null,
+    face:{ x:-1, y:0 }, actions:0, hitFlash:0 };
+  e.hp = e.maxhp;
+  return e;
+}
+
+// ================= world =================
+function solidAt(px, py){
+  const tx = Math.floor(px / TILE), ty = Math.floor(py / TILE);
+  if (tx < 0 || ty < 0 || tx >= COLS || ty >= ROWS) return true;
+  const v = grid[ty][tx];
+  return v === 1 || v === 3 || (v === 2 && !gateOpen);
+}
+function blocked(x, y, r){
+  return solidAt(x - r, y - r) || solidAt(x + r, y - r) || solidAt(x - r, y + r) || solidAt(x + r, y + r);
+}
+function moveEntity(e, dx, dy){
+  let hit = false;
+  if (!blocked(e.x + dx, e.y, e.r)) e.x += dx; else hit = true;
+  if (!blocked(e.x, e.y + dy, e.r)) e.y += dy; else hit = true;
+  return hit;
+}
+
+function reachable(sx, sy, ex, ey){
+  const seen = new Set([sx + ',' + sy]), q = [[sx, sy]];
+  while (q.length) {
+    const [x, y] = q.shift();
+    if (x === ex && y === ey) return true;
+    for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+      const nx = x + dx, ny = y + dy, k = nx + ',' + ny;
+      if (nx < 0 || ny < 0 || nx >= COLS || ny >= ROWS || seen.has(k) || grid[ny][nx] !== 0) continue;
+      seen.add(k); q.push([nx, ny]);
+    }
+  }
+  return false;
+}
+
+function genRoom(boss){
+  for (let attempt = 0; attempt < 60; attempt++) {
+    grid = [];
+    for (let y = 0; y < ROWS; y++) {
+      const row = [];
+      for (let x = 0; x < COLS; x++) row.push((x === 0 || y === 0 || x === COLS - 1 || y === ROWS - 1) ? 1 : 0);
+      grid.push(row);
+    }
+    grid[9][COLS - 1] = 2; grid[10][COLS - 1] = 2;
+    const n = boss ? 10 : Math.floor(rand(14, 22));
+    for (let i = 0; i < n; i++) {
+      const cx = 2 + Math.floor(Math.random() * (COLS - 4)), cy = 2 + Math.floor(Math.random() * (ROWS - 4));
+      const size = 1 + Math.floor(Math.random() * 3);
+      for (let k = 0; k < size; k++) {
+        const x = cx + (k % 2), y = cy + Math.floor(k / 2);
+        if (x < 5 || x > COLS - 3 || y >= ROWS - 1) continue;
+        if (boss && Math.hypot(x - COLS * 0.65, y - ROWS / 2) < 6) continue;
+        grid[y][x] = 3;
+      }
+    }
+    for (let y = 8; y <= 11; y++) for (let x = COLS - 4; x < COLS - 1; x++) grid[y][x] = 0;
+    if (reachable(2, 10, COLS - 2, 10)) break;
+  }
+  prerenderRoom();
+}
+
+function findOpen(minX, r){
+  for (let i = 0; i < 300; i++) {
+    const x = rand(minX, W - TILE * 4), y = rand(TILE * 2, H - TILE * 2);
+    if (!blocked(x, y, r + 24)) return { x, y };
+  }
+  return { x:W / 2, y:H / 2 };
+}
+function spawnGroup(cx, cy, types, scale){
+  for (const t of types) {
+    const r = ENEMIES[t].r;
+    for (let i = 0; i < 30; i++) {
+      const x = cx + rand(-60, 60), y = cy + rand(-60, 60);
+      if (!blocked(x, y, r + 2) && !enemies.some(o => dist(o, { x, y }) < o.r + r + 8)) {
+        enemies.push(makeEnemy(t, x, y, scale)); break;
+      }
+    }
+  }
+}
+
+function newRun(){
+  save.runs++; persist();
+  run = { era:0, room:0, party:[], newFound:[], bonus:{ hp:0, mp:0, pow:1, def:0, spd:0 } };
+  enemies = []; battle = null;
+  buildCards();
+  hideAll();
+  showDraft(1);
+}
+
+const PACTS = [
+  { title:'Pact of Fury',  color:'#ff8a5c', desc:'+35% ATK and MAG for the whole run.', apply(B){ B.pow *= 1.35; } },
+  { title:'Pact of Iron',  color:'#b0b8c8', desc:'+50 Max HP and +3 DEF for the whole run.', apply(B){ B.hp += 50; B.def += 3; } },
+  { title:'Pact of Tempo', color:'#ffe94a', desc:'+4 SPD for the whole run. Gauges fill much faster.', apply(B){ B.spd += 4; } },
+  { title:'Pact of the Well', color:'#60a5fa', desc:'+20 Max MP for the whole run.', apply(B){ B.mp += 20; } },
+];
+
+function heroDesc(id){
+  const c = CHARS[id];
+  return `<span style="color:${ELEM_COLOR[c.elem]}">${ELEM_NAME[c.elem]}</span> ${c.role.toLowerCase()} · HP ${c.hp} · MP ${c.mp}<br>` +
+    `ATK ${c.atk} · MAG ${c.mag} · DEF ${c.def} · SPD ${c.spd}<br>` +
+    `Techs: ${c.techs.map(t => TECHS[t].name).join(', ')}<br>` +
+    `<span style="color:#9fb8ff">${c.passive.name}: ${c.passive.desc}</span>`;
+}
+
+const combosFor = ids => COMBOS.filter(c => c.m.every(id => ids.includes(id)));
+
+function showDraft(stage){
+  state = 'draft';
+  const pool = shuffle(Object.keys(CHARS).filter(id => !run.party.some(m => m.id === id)));
+  const heroOpt = (id, next) => {
+    const c = CHARS[id];
+    const combos = combosFor([...run.party.map(m => m.id), id]).length;
+    return {
+      title:c.name, color:c.color,
+      desc:heroDesc(id) + (run.party.length ? `<br><b>Unlocks ${combos} combo${combos === 1 ? '' : 's'} with ${run.party[0].name}.</b>` : ''),
+      onPick(){ run.party.push(makeMember(id)); next(); },
+    };
+  };
+  if (stage === 1) {
+    renderChoices('Draft your leader', 'Draft 1 of 2 · Pick one hero to lead the run.',
+      pool.slice(0, 3).map(id => heroOpt(id, () => showDraft(2))));
+    return;
+  }
+  const lead = run.party[0];
+  const pact = pick(PACTS);
+  const risk = {
+    title:`Risk it: ${pact.title}`, color:'#c9a0ff',
+    desc:`${pact.desc} Also applies to every hero you recruit later.<br><b style="color:#f87171">Risky:</b> ${lead.name} starts the run alone, with no combos until you recruit a partner.`,
+    onPick(){ pact.apply(run.bonus); run.party = [makeMember(lead.id)]; startRun(); },
+  };
+  renderChoices('Draft a partner', `Draft 2 of 2 · Pick a partner for <span style="color:${lead.color}">${lead.name}</span>, or gamble on a permanent upgrade.`,
+    [...pool.slice(0, 2).map(id => heroOpt(id, startRun)), risk]);
+}
+
+function startRun(){
+  document.getElementById('reward').classList.add('hidden');
+  buildCards();
+  enterRoom();
+}
+
+function enterRoom(){
+  const era = ERAS[run.era];
+  const g = run.era * ROOMS_PER_ERA + run.room;
+  const scale = 1 + 0.12 * g;
+  save.best = Math.max(save.best, g + 1); persist();
+  isBossRoom = run.room === ROOMS_PER_ERA - 1;
+  gateOpen = false;
+  genRoom(isBossRoom);
+  enemies = [];
+  if (isBossRoom) {
+    const bx = W * 0.65, by = H / 2;
+    enemies.push(makeEnemy(era.boss, bx, by, scale));
+    const minions = run.era === 0 ? 1 : 2;
+    spawnGroup(bx - 80, by, Array.from({ length:minions }, () => pick(era.enemies)), scale);
+  } else {
+    const centers = [];
+    for (let i = 0; i < 2; i++) {
+      let c;
+      for (let k = 0; k < 60; k++) { c = findOpen(TILE * 9, 20); if (centers.every(o => dist(o, c) > 230)) break; }
+      centers.push(c);
+      const size = 2 + (Math.random() < 0.5 ? 1 : 0) + (g >= 4 ? 1 : 0);
+      spawnGroup(c.x, c.y, Array.from({ length:size }, () => pick(era.enemies)), scale);
+    }
+  }
+  run.party.forEach((m, i) => { m.x = TILE * 2.5; m.y = TILE * 10 + (i === 0 ? 0 : i === 1 ? -30 : 30); m.tween = null; m.face = { x:1, y:0 }; });
+  trail = []; grace = 0.8; battle = null;
+  effects = []; texts = [];
+  state = 'explore';
+  if (run.room === 0) banner = { text:era.name, sub:era.sub, t:0, dur:3.2 };
+  else if (isBossRoom) banner = { text:ENEMIES[era.boss].name, sub:'A distortion in time...', t:0, dur:2.6 };
+  else banner = null;
+}
+
+function exitRoom(){
+  if (isBossRoom) {
+    if (run.era === ERAS.length - 1) { endRun(true); return; }
+    run.era++; run.room = 0;
+    run.party.forEach(m => { m.hp = m.maxhp; m.mp = m.maxmp; });
+  } else run.room++;
+  showReward();
+}
+
+// ================= explore =================
+const SPEED = 150;
+function updateExplore(dt){
+  const L = run.party[0];
+  let mx = (keys.ArrowRight || keys.KeyD ? 1 : 0) - (keys.ArrowLeft || keys.KeyA ? 1 : 0);
+  let my = (keys.ArrowDown || keys.KeyS ? 1 : 0) - (keys.ArrowUp || keys.KeyW ? 1 : 0);
+  if (mx || my) {
+    const len = Math.hypot(mx, my); mx /= len; my /= len;
+    L.face = { x:mx, y:my };
+    moveEntity(L, mx * SPEED * dt, my * SPEED * dt);
+  }
+  if (!trail.length || dist(trail[0], L) > 3) { trail.unshift({ x:L.x, y:L.y }); if (trail.length > 200) trail.pop(); }
+  for (let i = 1; i < run.party.length; i++) {
+    const f = run.party[i], tp = trail[Math.min(trail.length - 1, i * 12)];
+    if (!tp) continue;
+    const dx = tp.x - f.x, dy = tp.y - f.y, d = Math.hypot(dx, dy);
+    if (d > 1) { const s = Math.min(d, SPEED * 1.3 * dt); f.x += dx / d * s; f.y += dy / d * s; f.face = { x:dx / d, y:dy / d }; }
+  }
+
+  grace -= dt;
+  for (const e of enemies) {
+    if (e.hp <= 0) continue;
+    const d = dist(e, L);
+    if (e.boss) {
+      e.face = { x:(L.x - e.x) / d, y:(L.y - e.y) / d };
+      if (d < e.r + L.r + 40 && grace <= 0) { startBattle(e); return; }
+      continue;
+    }
+    let vx, vy;
+    if (d < 170) { vx = (L.x - e.x) / d * 75; vy = (L.y - e.y) / d * 75; }
+    else {
+      e.wander.t -= dt;
+      if (e.wander.t <= 0) {
+        const a = Math.random() * Math.PI * 2, go = Math.random() < 0.7;
+        e.wander = { dx:go ? Math.cos(a) : 0, dy:go ? Math.sin(a) : 0, t:rand(1, 2.5) };
+      }
+      vx = e.wander.dx * 40; vy = e.wander.dy * 40;
+    }
+    if (vx || vy) e.face = { x:vx / Math.hypot(vx, vy), y:vy / Math.hypot(vx, vy) };
+    if (moveEntity(e, vx * dt, vy * dt)) e.wander.t = 0;
+    if (d < e.r + L.r + 4 && grace <= 0) { startBattle(e); return; }
+  }
+  separateEnemies(enemies.filter(e => e.hp > 0));
+  if (gateOpen && L.x > (COLS - 1) * TILE + 2) exitRoom();
+}
+
+function separateEnemies(list){
+  for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
+    const a = list[i], b = list[j];
+    if (a.tween || b.tween) continue;
+    const d = dist(a, b), min = a.r + b.r + 4;
+    if (d >= min) continue;
+    const push = Math.min(2, (min - d) / 2);
+    const ux = d > 0.01 ? (b.x - a.x) / d : 1, uy = d > 0.01 ? (b.y - a.y) / d : 0;
+    if (!a.boss) moveEntity(a, -ux * push, -uy * push);
+    if (!b.boss) moveEntity(b, ux * push, uy * push);
+  }
+}
+
+// ================= battle =================
+const alivePartyOf = () => run.party.filter(m => m.hp > 0);
+const aliveEnemies = () => battle ? battle.enemies.filter(e => e.hp > 0) : [];
+const isReady = m => m.hp > 0 && m.atb >= 100 && !m.queued;
+const readyMembers = () => run.party.filter(isReady);
+const needsTarget = shape => ['single','circle','line','ally'].includes(shape);
+
+function startBattle(contact){
+  state = 'battle';
+  const group = enemies.filter(e => e.hp > 0 && (isBossRoom || dist(e, contact) <= 260));
+  const L = run.party[0];
+  const ec = centroid(group);
+  battle = { cx:(L.x + ec.x) / 2, cy:(L.y + ec.y) / 2, enemies:group, queue:[], busy:false, activeId:null, targeting:null };
+  let dx = ec.x - L.x, dy = ec.y - L.y; const len = Math.hypot(dx, dy) || 1; dx /= len; dy /= len;
+  const px = -dy, py = dx;
+  const slots = [[0, 0], [-30, 55], [-30, -55]];
+  const alts = [[-60, 0], [-50, 35], [-50, -35], [-15, 40], [-15, -40], [-25, 0]];
+  run.party.forEach((m, i) => {
+    let tx = L.x + dx * slots[i][0] + px * slots[i][1], ty = L.y + dy * slots[i][0] + py * slots[i][1];
+    if (i > 0 && blocked(tx, ty, m.r)) {
+      for (const [a, b] of alts) {
+        const ax = L.x + dx * a + px * b, ay = L.y + dy * a + py * b;
+        if (!blocked(ax, ay, m.r) && !run.party.slice(0, i).some(o => Math.hypot(o.x - ax, o.y - ay) < 26)) { tx = ax; ty = ay; break; }
+      }
+    }
+    if (i > 0) tweenTo(m, tx, ty, 0.35);
+    m.atb = rand(20, 60); m.queued = false; m.shield = 0; m.buffs = {};
+  });
+  for (const e of group) {
+    e.queued = false; e.moveT = rand(2, 4);
+    const d = dist(e, L);
+    if (d < 75 && !e.boss) {
+      const nx = L.x + (e.x - L.x) / (d || 1) * 85, ny = L.y + (e.y - L.y) / (d || 1) * 85;
+      const crowded = group.some(o => o !== e && Math.hypot((o.tween ? o.tween.tx : o.x) - nx, (o.tween ? o.tween.ty : o.y) - ny) < o.r + e.r + 8);
+      if (!blocked(nx, ny, e.r) && !crowded) tweenTo(e, nx, ny, 0.3);
+    }
+  }
+  say(L.x, L.y - 30, 'BATTLE!', '#ffd54a', 20, 1);
+}
+
+function updateBattle(dt){
+  const b = battle;
+  let rate = 1;
+  if (b.targeting) rate = waitMode ? 0 : 0.3;
+  if (b.busy) rate = 0;
+  const tdt = dt * rate;
+
+  const alive = aliveEnemies();
+  const ec = alive.length ? centroid(alive) : { x:b.cx, y:b.cy };
+  const pc = centroid(alivePartyOf().length ? alivePartyOf() : run.party);
+
+  for (const m of run.party) {
+    if (m.hp <= 0) { m.atb = 0; continue; }
+    if (m.shield > 0) m.shield -= tdt;
+    if (m.id === 'mira') {
+      m.mpAcc = (m.mpAcc || 0) + tdt * 0.5;
+      if (m.mpAcc >= 1) { gainMP(m, Math.floor(m.mpAcc), false); m.mpAcc %= 1; }
+    }
+    for (const k in m.buffs) if (m.buffs[k] > 0) m.buffs[k] = Math.max(0, m.buffs[k] - tdt);
+    const haste = m.buffs.haste > 0 ? 1.4 : 1;
+    if (!m.queued && m.atb < 100) m.atb = Math.min(100, m.atb + m.spd * 2.2 * haste * tdt);
+    const fx = ec.x - m.x, fy = ec.y - m.y, fl = Math.hypot(fx, fy) || 1;
+    if (!m.tween) m.face = { x:fx / fl, y:fy / fl };
+  }
+  for (const e of alive) {
+    if (!e.queued) {
+      e.atb += e.spd * 1.8 * tdt;
+      if (e.atb >= 100) { e.atb = 0; e.queued = true; b.queue.push({ enemy:e }); }
+    }
+    const fx = pc.x - e.x, fy = pc.y - e.y, fl = Math.hypot(fx, fy) || 1;
+    if (!e.tween) e.face = { x:fx / fl, y:fy / fl };
+    e.moveT -= tdt;
+    if (e.moveT <= 0 && !e.tween) { repositionEnemy(e); e.moveT = rand(3, 6); }
+  }
+
+  if (!b.busy) separateEnemies(alive);
+
+  const ready = readyMembers();
+  if (!ready.some(m => m.id === b.activeId)) b.activeId = ready.length ? ready[0].id : null;
+  if (b.targeting && b.targeting.members.some(m => !isReady(m))) b.targeting = null;
+
+  if (!b.busy && b.queue.length) {
+    const a = b.queue.shift();
+    b.busy = true;
+    runAction(a).then(() => { if (battle === b) { b.busy = false; checkBattleEnd(); } });
+  }
+}
+
+function repositionEnemy(e){
+  const b = battle;
+  if (e.ai === 'still') return;
+  const others = aliveEnemies().filter(o => o !== e);
+  for (let i = 0; i < 14; i++) {
+    let tx, ty;
+    if (e.ai === 'cluster' && others.length) {
+      const c = centroid(others); tx = c.x + rand(-55, 55); ty = c.y + rand(-55, 55);
+    } else {
+      const a = Math.random() * Math.PI * 2, rr = rand(90, 210);
+      tx = b.cx + Math.cos(a) * rr; ty = b.cy + Math.sin(a) * rr;
+    }
+    if (blocked(tx, ty, e.r)) continue;
+    if (run.party.some(m => Math.hypot(m.x - tx, m.y - ty) < 55)) continue;
+    if (others.some(o => {
+      const ox = o.tween ? o.tween.tx : o.x, oy = o.tween ? o.tween.ty : o.y;
+      return Math.hypot(ox - tx, oy - ty) < o.r + e.r + 8;
+    })) continue;
+    tweenTo(e, tx, ty, 0.8);
+    return;
+  }
+}
+
+function choose(m, def, combo){
+  const members = combo ? combo.m.map(id => run.party.find(p => p.id === id)) : [m];
+  if (needsTarget(def.shape)) battle.targeting = { def, combo, members, actorId:m.id };
+  else commit(members, def, null, combo);
+}
+
+function commit(members, def, target, combo){
+  if (members.some(m => !isReady(m) || m.mp < def.mp)) { battle.targeting = null; return; }
+  members.forEach(m => { m.mp -= def.mp; m.atb = 0; m.queued = true; });
+  battle.queue.push({ members, def, target, combo });
+  battle.targeting = null;
+}
+
+function lineGeom(caster, target){
+  let dx = target.x - caster.x, dy = target.y - caster.y; const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
+  return { x0:caster.x, y0:caster.y, ux:dx, uy:dy, x1:caster.x + dx * 1200, y1:caster.y + dy * 1200 };
+}
+function inLine(e, g, width){
+  const rx = e.x - g.x0, ry = e.y - g.y0;
+  const t = rx * g.ux + ry * g.uy;
+  if (t < 0) return false;
+  return Math.abs(rx * g.uy - ry * g.ux) <= width / 2 + e.r;
+}
+
+function computeHits(def, caster, target){
+  const en = aliveEnemies();
+  switch (def.shape) {
+    case 'single': return target ? [target] : [];
+    case 'circle': return target ? en.filter(e => dist(e, target) <= def.radius + e.r) : [];
+    case 'self':   return en.filter(e => dist(e, caster) <= def.radius + e.r);
+    case 'line':   { if (!target) return []; const g = lineGeom(caster, target); return en.filter(e => inLine(e, g, def.width)); }
+    case 'all':    return en;
+    default: return [];
+  }
+}
+
+function powerOf(def, members){
+  const might = members.some(m => m.buffs.might > 0) ? 1.3 : 1;
+  if (members.length === 1) return members[0][def.stat || 'atk'] * might;
+  return members.reduce((s, m) => s + Math.max(m.atk, m.mag), 0) / members.length * might;
+}
+
+const isBuffed = m => Object.values(m.buffs).some(t => t > 0);
+
+async function runAction(a){
+  const b = battle;
+  if (a.enemy) return enemyAction(a.enemy);
+  const { members, def, combo } = a;
+  let target = a.target;
+  if (members.some(m => m.hp <= 0)) { members.forEach(m => m.queued = false); return; }
+  if (['single','circle','line'].includes(def.shape) && (!target || target.hp <= 0)) {
+    const en = aliveEnemies();
+    if (!en.length) { members.forEach(m => m.queued = false); return; }
+    const ref = target || members[0];
+    target = en.reduce((best, e) => dist(e, ref) < dist(best, ref) ? e : best, en[0]);
+  }
+  const caster = members[0];
+
+  if (combo) {
+    techBanner = { text:def.name, colors:members.map(m => m.color), t:0, dur:1.5 };
+    members.forEach(m => effects.push({ type:'glow', ent:m, color:m.color, t:0, dur:0.5 }));
+    if (!save.codex.includes(combo.id)) {
+      save.codex.push(combo.id); run.newFound.push(def.name); persist();
+      say(caster.x, caster.y - 40, 'NEW TECH DISCOVERED!', '#c9a0ff', 18, 1.8);
+    }
+    await wait(0.5);
+    if (battle !== b) return;
+  } else if (def !== TECHS.attack) {
+    say(caster.x, caster.y - 26, def.name, '#ffffff', 13, 0.9);
+  }
+  if (def !== TECHS.attack) {
+    const lumi = run.party.find(m => m.id === 'lumi' && m.hp > 0);
+    if (lumi && !members.includes(lumi)) gainMP(lumi, 3);
+  }
+  const lyra = run.party.find(m => m.id === 'lyra' && m.hp > 0);
+  if (lyra && members.some(m => m !== lyra && isBuffed(m))) gainMP(lyra, 2);
+
+  if (def.anim === 'dash' && target) {
+    const hx = caster.x, hy = caster.y;
+    const g = lineGeom(caster, target);
+    const off = target.r + caster.r + 2;
+    await tweenTo(caster, target.x - g.ux * off, target.y - g.uy * off, 0.16);
+    if (battle !== b) return;
+    applyEffect(def, members, caster, target);
+    await wait(0.15);
+    await tweenTo(caster, hx, hy, 0.2);
+  } else {
+    applyEffect(def, members, caster, target);
+    await wait(0.5);
+  }
+  members.forEach(m => m.queued = false);
+}
+
+function applyEffect(def, members, caster, target){
+  const els = elemsOf(def);
+  const color = ELEM_COLOR[els[0] || 'none'];
+  const power = powerOf(def, members);
+  const hits = computeHits(def, caster, target);
+  const big = members.length > 1;
+
+  switch (def.shape) {
+    case 'single': effects.push({ type:'burst', x:target.x, y:target.y, r:big ? 50 : 28, color, seed:Math.random(), t:0, dur:0.4 }); break;
+    case 'circle': effects.push({ type:'ring', x:target.x, y:target.y, r:def.radius, color, t:0, dur:0.55 }); break;
+    case 'self':   effects.push({ type:'ring', x:caster.x, y:caster.y, r:def.radius, color, t:0, dur:0.5 }); break;
+    case 'line':   { const g = lineGeom(caster, target); effects.push({ type:'beam', x0:g.x0, y0:g.y0, x1:g.x1, y1:g.y1, w:def.width, color, t:0, dur:0.5 }); break; }
+    case 'all':    effects.push({ type:'flash', color, t:0, dur:0.5 }); hits.forEach(e => effects.push({ type:'burst', x:e.x, y:e.y, r:34, color, seed:Math.random(), t:0, dur:0.45 })); break;
+  }
+  if (hits.length) for (const e of hits) damageEnemy(e, power * def.pow, els);
+  if (big && hits.length) shake = Math.max(shake, 7);
+  if (!big && hits.length) {
+    if (caster.id === 'kai' && def === TECHS.attack) gainMP(caster, 5);
+    if (caster.id === 'zed') gainMP(caster, 2 * hits.length);
+  }
+
+  if (def.shape === 'ally' && target) healMember(target, power * def.pow * 2, true);
+  if (def.shape === 'allies') alivePartyOf().forEach(m => healMember(m, power * def.pow * 2, false));
+  if (def.shape === 'selfbuff') { caster.shield = def.shield; say(caster.x, caster.y - 24, 'Guard', '#9fd8ff', 14); }
+  if (def.healPct) alivePartyOf().forEach(m => healMember(m, m.maxhp * def.healPct, false));
+  if (def.shieldAll) alivePartyOf().forEach(m => { m.shield = Math.max(m.shield, def.shieldAll); });
+  if (def.shieldAll) say(caster.x, caster.y - 40, 'BARRIER', '#9fd8ff', 16);
+  if (def.buffAll) {
+    alivePartyOf().forEach(m => {
+      for (const k in def.buffAll) m.buffs[k] = Math.max(m.buffs[k] || 0, def.buffAll[k]);
+      effects.push({ type:'notes', ent:m, color:BUFFS[Object.keys(def.buffAll)[0]].color, seed:Math.random() * 9, t:0, dur:1 });
+    });
+    say(caster.x, caster.y - 52, Object.keys(def.buffAll).map(k => BUFFS[k].name.toUpperCase()).join(' + ') + ' UP', '#5eead4', 16, 1.2);
+  }
+  if (def.stagger && hits.length) {
+    hits.forEach(e => { e.atb = Math.max(0, e.atb - def.stagger); });
+    const c = centroid(hits);
+    say(c.x, c.y - 40, 'STAGGERED', '#5eead4', 15);
+  }
+}
+
+function damageEnemy(e, base, els){
+  let mult = 1, tag = null;
+  if (els.includes(e.weak)) { mult = 1.6; tag = 'weak'; }
+  else if (els.length && els.every(el => el === e.resist)) { mult = 0.5; tag = 'resist'; }
+  const dmg = Math.max(1, Math.round(base * rand(0.9, 1.1) * mult - e.def));
+  e.hp = Math.max(0, e.hp - dmg); e.hitFlash = 0.15;
+  say(e.x + rand(-6, 6), e.y - e.r - 6, String(dmg), tag === 'weak' ? '#ffe94a' : tag === 'resist' ? '#999' : '#ffffff', tag === 'weak' ? 20 : 16);
+  if (tag === 'weak') {
+    say(e.x, e.y - e.r - 26, 'WEAK!', '#ffe94a', 13, 0.8);
+    if (!save.weak.includes(e.type)) { save.weak.push(e.type); persist(); }
+  }
+  if (dmg > 70) shake = Math.max(shake, 5);
+  if (e.hp <= 0) effects.push({ type:'poof', x:e.x, y:e.y, color:e.color, t:0, dur:0.6 });
+}
+
+function healMember(m, amt, canRevive){
+  if (m.hp <= 0 && !canRevive) return;
+  const v = Math.round(amt * rand(0.9, 1.1));
+  if (m.hp <= 0) { m.atb = 0; say(m.x, m.y - 40, 'REVIVED', '#4ade80', 14); }
+  m.hp = Math.min(m.maxhp, m.hp + v);
+  say(m.x, m.y - 24, '+' + v, '#4ade80', 16);
+  effects.push({ type:'sparkle', ent:m, color:'#7dffb0', seed:Math.random() * 9, t:0, dur:0.8 });
+}
+
+function damageParty(m, base){
+  let dmg = Math.max(1, Math.round(base * rand(0.9, 1.1) - m.def));
+  if (m.shield > 0) dmg = Math.round(dmg * 0.5);
+  m.hp = Math.max(0, m.hp - dmg);
+  say(m.x, m.y - 22, String(dmg), '#ff6b6b', 16);
+  effects.push({ type:'burst', x:m.x, y:m.y, r:18, color:'#ff5050', seed:Math.random(), t:0, dur:0.3 });
+  if (m.hp <= 0) { m.atb = 0; say(m.x, m.y - 40, 'KO', '#ff4040', 18); }
+  else if (m.id === 'rook') gainMP(m, 3);
+}
+
+function gainMP(m, amt, show = true){
+  const v = Math.min(amt, m.maxmp - m.mp);
+  if (v <= 0) return;
+  m.mp += v;
+  if (show) say(m.x + 14, m.y - 10, `+${v} MP`, '#7cb8ff', 12, 0.9);
+}
+
+async function enemyAction(e){
+  const b = battle;
+  e.queued = false;
+  if (e.hp <= 0) return;
+  const alive = alivePartyOf();
+  if (!alive.length) return;
+  const tgt = pick(alive);
+  e.actions++;
+  if (e.boss && e.actions % 4 === 0) {
+    say(e.x, e.y - e.r - 14, e.aoeName, '#ff8080', 18, 1.2);
+    effects.push({ type:'warn', x:tgt.x, y:tgt.y, r:100, t:0, dur:0.8 });
+    await wait(0.8);
+    if (battle !== b) return;
+    effects.push({ type:'ring', x:tgt.x, y:tgt.y, r:100, color:'#ff4050', t:0, dur:0.5 });
+    alivePartyOf().filter(m => dist(m, tgt) <= 100 + m.r).forEach(m => damageParty(m, e.atk * 1.3));
+    shake = 8;
+    await wait(0.4);
+    return;
+  }
+  const hx = e.x, hy = e.y;
+  const g = lineGeom(e, tgt);
+  const off = tgt.r + e.r + 2;
+  await tweenTo(e, tgt.x - g.ux * off, tgt.y - g.uy * off, 0.18);
+  if (battle !== b) return;
+  damageParty(tgt, e.atk);
+  await wait(0.15);
+  await tweenTo(e, hx, hy, 0.22);
+}
+
+function checkBattleEnd(){
+  if (!battle) return;
+  if (battle.enemies.every(e => e.hp <= 0)) endBattle();
+  else if (run.party.every(m => m.hp <= 0)) endRun(false);
+}
+
+function endBattle(){
+  battle = null; state = 'explore';
+  run.party.forEach(m => {
+    if (m.hp <= 0) m.hp = 1;
+    m.hp = Math.min(m.maxhp, m.hp + Math.ceil(m.maxhp * 0.15));
+    m.mp = Math.min(m.maxmp, m.mp + Math.ceil(m.maxmp * 0.25));
+    m.atb = 0; m.queued = false; m.shield = 0; m.buffs = {};
+  });
+  const L = run.party[0];
+  say(L.x, L.y - 30, 'VICTORY', '#ffd54a', 20, 1.2);
+  trail = []; grace = 1.0;
+  if (enemies.every(e => e.hp <= 0)) {
+    gateOpen = true;
+    banner = { text:'The Time Gate opens', sub:'Head to the right edge', t:0, dur:2 };
+  }
+}
+
+// ================= rewards / end / codex =================
+function recruitOpt(id, back){
+  const c = CHARS[id];
+  const full = run.party.length >= 3;
+  let tail;
+  if (full) tail = `<b>Party is full:</b> you'll choose who to swap out.`;
+  else {
+    const unlocks = combosFor([...run.party.map(m => m.id), id]).filter(k => k.m.includes(id));
+    const duals = unlocks.filter(k => k.m.length === 2).length, triples = unlocks.length - duals;
+    tail = `<b>Enables ${duals} Dual${triples ? ` + ${triples} Triple` : ''} Tech${duals + triples === 1 ? '' : 's'}.</b>`;
+  }
+  return {
+    title:`Recruit ${c.name}`, color:c.color,
+    desc:`${heroDesc(id)}<br>${tail}`,
+    onPick(){
+      if (!full) { run.party.push(makeMember(id)); finishReward(); }
+      else showReplace(id, back);
+    },
+  };
+}
+
+function showReplace(id, back){
+  const c = CHARS[id];
+  const before = combosFor(run.party.map(m => m.id)).length;
+  const opts = run.party.map((m, i) => {
+    const ids = run.party.map(p => p.id); ids[i] = id;
+    const after = combosFor(ids).length;
+    const delta = after - before;
+    return {
+      title:`Swap out ${m.name}`, color:m.color,
+      desc:`${CHARS[m.id].role} · HP ${m.hp}/${m.maxhp}${i === 0 ? ' · <b>Leader</b>' : ''}<br>` +
+        `New lineup: ${ids.map(x => CHARS[x].name).join(', ')}<br>` +
+        `<b>Combos available: ${after}</b> <span style="color:${delta > 0 ? '#4ade80' : delta < 0 ? '#f87171' : '#aaa'}">(${delta >= 0 ? '+' : ''}${delta})</span>`,
+      onPick(){
+        const n = makeMember(id);
+        n.x = m.x; n.y = m.y;
+        run.party[i] = n;
+        finishReward();
+      },
+    };
+  });
+  opts.push({ title:'Back', color:'#888', desc:`Keep the current party and pick a different boon.`, onPick:back });
+  renderChoices(`Recruit <span style="color:${c.color}">${c.name}</span>`, 'Choose a hero to leave behind in this era. The new hero joins at full HP and MP.', opts);
+}
+
+function finishReward(){
+  document.getElementById('reward').classList.add('hidden');
+  buildCards();
+  enterRoom();
+}
+
+function renderChoices(title, sub, opts){
+  const el = document.getElementById('reward');
+  el.innerHTML = `<h2>${title}</h2><p>${sub}</p><div class="opts"></div>`;
+  const box = el.querySelector('.opts');
+  opts.forEach(o => {
+    const b = document.createElement('button');
+    b.className = 'opt';
+    b.style.borderColor = o.color;
+    b.innerHTML = `<span class="t" style="color:${o.color}">${o.title}</span><span class="d">${o.desc}</span>`;
+    b.onclick = () => o.onPick();
+    box.appendChild(b);
+  });
+  el.classList.remove('hidden');
+}
+
+function genericOpts(){
+  const P = run.party, B = run.bonus;
+  return shuffle([
+    { title:'Tonic', color:'#4ade80', desc:'Fully restore HP and MP for the whole party.', apply(){ P.forEach(m => { m.hp = m.maxhp; m.mp = m.maxmp; }); } },
+    { title:'Power Crystal', color:'#ff8a5c', desc:'+15% ATK and MAG for everyone (including future recruits).', apply(){ B.pow *= 1.15; P.forEach(m => { m.atk = Math.round(m.atk * 1.15); m.mag = Math.round(m.mag * 1.15); }); } },
+    { title:'Vital Seed', color:'#7dffb0', desc:'+25 Max HP for everyone and heal 25.', apply(){ B.hp += 25; P.forEach(m => { m.maxhp += 25; m.hp = Math.min(m.maxhp, m.hp + 25); }); } },
+    { title:'Speed Tab', color:'#ffe94a', desc:'+2 SPD for everyone. Gauges fill faster.', apply(){ B.spd += 2; P.forEach(m => m.spd += 2); } },
+    { title:'Iron Charm', color:'#b0b8c8', desc:'+2 DEF for everyone.', apply(){ B.def += 2; P.forEach(m => m.def += 2); } },
+    { title:'Magic Tab', color:'#60a5fa', desc:'+10 Max MP for everyone and restore all MP.', apply(){ B.mp += 10; P.forEach(m => { m.maxmp += 10; m.mp = m.maxmp; }); } },
+  ]);
+}
+
+function showReward(){
+  state = 'reward';
+  const opts = [];
+  const show = () => {
+    const era = ERAS[run.era];
+    renderChoices('The Time Gate hums...',
+      `<span class="dim">Next: ${era.name} · Room ${run.room + 1}/${ROOMS_PER_ERA}${run.room === ROOMS_PER_ERA - 1 ? ' (BOSS)' : ''}</span><br>Choose a boon.`, opts);
+  };
+  const notIn = shuffle(Object.keys(CHARS).filter(id => !run.party.some(m => m.id === id)));
+  if (notIn.length && (run.party.length < 3 || Math.random() < 0.6)) {
+    opts.push(recruitOpt(notIn[0], show));
+    if (notIn[1] && run.party.length < 3 && Math.random() < 0.5) opts.push(recruitOpt(notIn[1], show));
+  }
+  const gen = genericOpts();
+  while (opts.length < 3) {
+    const g = gen.pop();
+    opts.push({ ...g, onPick(){ g.apply(); finishReward(); } });
+  }
+  show();
+}
+
+function endRun(win){
+  state = 'end'; battle = null;
+  if (win) save.wins++;
+  persist();
+  const el = document.getElementById('end');
+  const found = save.codex.length;
+  el.innerHTML = `<h1 style="font-size:44px">${win ? 'TIME RESTORED' : 'THE TIMELINE COLLAPSED'}</h1>
+    <p>${win ? 'You broke the Omega Core and sealed the rift.' : `Lost in ${ERAS[run.era].name}, room ${run.room + 1}.`}</p>
+    <p>${run.newFound.length ? `New techs discovered this run: <b>${run.newFound.join(', ')}</b>` : 'No new techs discovered this run.'}</p>
+    <p class="dim">Codex: ${found} / ${COMBOS.length} · Runs: ${save.runs} · Victories: ${save.wins}</p>
+    <div><button id="againBtn">New Run</button><button id="endCodexBtn">Codex</button></div>`;
+  el.querySelector('#againBtn').onclick = newRun;
+  el.querySelector('#endCodexBtn').onclick = openCodex;
+  el.classList.remove('hidden');
+}
+
+function shapeLabel(c){
+  return { single:'Single target', circle:`Area blast (r${c.radius})`, line:'Piercing line', all:'All enemies', allies:'All allies', party:'Whole party' }[c.shape] || c.shape;
+}
+function openCodex(){
+  codexOpen = true;
+  const el = document.getElementById('codex');
+  const found = COMBOS.filter(c => save.codex.includes(c.id)).length;
+  el.innerHTML = `<h2>Tech Codex</h2>
+    <p>${found} / ${COMBOS.length} combo techs discovered. Field the right partners, have them ready at the same time, and fire the tech to record it.</p>
+    <div class="codex-grid">${COMBOS.map(c => {
+      const k = save.codex.includes(c.id);
+      return `<div class="cx ${k ? '' : 'unk'}"><div class="cx-n">${k ? c.name : '???'}</div>
+        <div class="cx-m">${k ? c.m.map(id => `<span style="color:${CHARS[id].color}">${CHARS[id].name}</span>`).join(' + ') : (c.m.length === 3 ? 'Triple Tech' : 'Dual Tech')}</div>
+        <div class="cx-d">${k ? shapeLabel(c) + ' · ' + c.desc : '&nbsp;'}</div></div>`;
+    }).join('')}</div>
+    <button id="closeCodexBtn">Close</button>`;
+  el.querySelector('#closeCodexBtn').onclick = closeCodex;
+  el.classList.remove('hidden');
+}
+function closeCodex(){ codexOpen = false; document.getElementById('codex').classList.add('hidden'); refreshTitleStats(); }
+function hideAll(){ for (const id of ['title','reward','end','codex']) document.getElementById(id).classList.add('hidden'); codexOpen = false; }
+function refreshTitleStats(){
+  document.getElementById('stats').textContent = `Runs: ${save.runs} · Victories: ${save.wins} · Combos found: ${save.codex.length}/${COMBOS.length}`;
+}
+
+// ================= panel UI =================
+function buildCards(){
+  const p = document.getElementById('party'); p.innerHTML = '';
+  cardRefs = run.party.map(m => {
+    const d = document.createElement('div'); d.className = 'card has-tip';
+    d._tip = () => cardTip(m);
+    const el = CHARS[m.id].elem;
+    d.innerHTML = `<div class="nm"><span style="color:${m.color}">${m.name}</span><span class="el" style="color:${ELEM_COLOR[el]}">${ELEM_NAME[el].toUpperCase()}</span></div>
+      <div class="pas">${CHARS[m.id].passive.name}</div>
+      <div class="buffs"></div>
+      <div class="bar hp"><div></div></div><div class="small"><span>HP</span><span class="hpt"></span></div>
+      <div class="bar mp"><div></div></div><div class="small"><span>MP</span><span class="mpt"></span></div>
+      <div class="bar atb"><div></div></div>`;
+    d.onclick = () => { if (state === 'battle' && isReady(m)) { battle.activeId = m.id; battle.targeting = null; } };
+    p.appendChild(d);
+    return { m, d, hp:d.querySelector('.hp>div'), mp:d.querySelector('.mp>div'), atb:d.querySelector('.atb>div'), hpt:d.querySelector('.hpt'), mpt:d.querySelector('.mpt'), buffs:d.querySelector('.buffs'), buffHtml:'' };
+  });
+  lastSig = '';
+}
+
+function menuSig(){
+  if (!run) return 'none';
+  if (state !== 'battle' || !battle) return `${state}|${gateOpen}|${run.era}|${run.room}`;
+  const b = battle;
+  return [state, b.activeId, b.targeting ? b.targeting.def.name : '', readyMembers().map(m => m.id).join(), run.party.map(m => m.mp + ':' + (m.hp > 0)).join(), waitMode].join('|');
+}
+
+function updatePanel(){
+  if (!run) return;
+  for (const c of cardRefs) {
+    const m = c.m;
+    const hpPct = m.hp / m.maxhp;
+    c.hp.style.width = (hpPct * 100) + '%';
+    c.hp.style.background = hpPct < 0.3 ? '#f87171' : '#4ade80';
+    c.mp.style.width = (m.mp / m.maxmp * 100) + '%';
+    c.atb.style.width = (state === 'battle' ? m.atb : 0) + '%';
+    c.hpt.textContent = `${m.hp}/${m.maxhp}`;
+    c.mpt.textContent = `${m.mp}/${m.maxmp}`;
+    c.d.classList.toggle('ready', state === 'battle' && isReady(m));
+    c.d.classList.toggle('active', state === 'battle' && !!battle && battle.activeId === m.id);
+    c.d.classList.toggle('ko', m.hp <= 0);
+    const bh = Object.keys(BUFFS).filter(k => m.buffs[k] > 0)
+      .map(k => `<span style="color:${BUFFS[k].color}">${BUFFS[k].name} ${Math.ceil(m.buffs[k])}s</span>`).join(' ');
+    if (c.buffHtml !== bh) { c.buffHtml = bh; c.buffs.innerHTML = bh; }
+  }
+  const sig = menuSig();
+  if (sig !== lastSig) { lastSig = sig; buildMenu(); }
+  else if (!tipEl.classList.contains('hidden')) refreshHover();
+}
+
+function buildMenu(){
+  const menu = document.getElementById('menu'); menu.innerHTML = ''; menuButtons = []; previewDef = null;
+  const hint = html => { const h = document.createElement('div'); h.className = 'hint'; h.innerHTML = html; menu.appendChild(h); };
+  const btn = (label, sub, onClick, o = {}) => {
+    const b = document.createElement('button');
+    if (o.cls) b.className = o.cls;
+    if (o.disabled) b.disabled = true;
+    else if (!o.nokey) menuButtons.push(b);
+    const key = (!o.disabled && !o.nokey) ? `<span class="key">${menuButtons.length}</span>` : '';
+    b.innerHTML = `${key}${label}${sub ? `<span class="sub">${sub}</span>` : ''}`;
+    b.onclick = onClick;
+    if (o.tip || o.preview) { b.classList.add('has-tip'); b._tip = o.tip; b._preview = o.preview; }
+    menu.appendChild(b);
+  };
+
+  if (state === 'explore') {
+    hint(`<b>${ERAS[run.era].name}</b> · Room ${run.room + 1}/${ROOMS_PER_ERA}. Move with <b>WASD / Arrows</b>. Touch an enemy to fight right where you stand.<br>` +
+      (gateOpen ? '<b style="color:#c9a0ff">The Time Gate is open. Walk through it on the right edge.</b>' : '<span class="dim">Defeat every enemy to open the Time Gate.</span>'));
+    btn('Codex (C)', '', openCodex, { nokey:true });
+    return;
+  }
+  if (state !== 'battle' || !battle) return;
+  const b = battle;
+  const m = run.party.find(p => p.id === b.activeId);
+  if (b.targeting) {
+    const t = b.targeting.def;
+    hint(`<b>${t.name}</b>: click ${t.shape === 'ally' ? 'a party member' : 'an enemy'} to target. <span class="dim">Right-click / Esc to cancel. Time is ${waitMode ? 'paused' : 'slowed'}.</span>`);
+    btn('Cancel', '', () => { b.targeting = null; }, { nokey:true });
+  } else if (!m) {
+    hint('Gauges filling... <span class="dim">Enemies act in real time. Tip: leave a ready hero waiting so a partner can join a Dual Tech, but enemies keep attacking while you wait.</span>');
+  } else {
+    hint(`<b style="color:${m.color}">${m.name}</b> is ready. ${readyMembers().length > 1 ? '<span class="dim">(Tab / click a card to switch)</span>' : ''}`);
+    btn('Attack', '', () => choose(m, TECHS.attack, null), { preview:{ def:TECHS.attack, members:[m] }, tip:() => techTip(TECHS.attack, [m], null) });
+    for (const tid of m.techs) {
+      const t = TECHS[tid];
+      btn(t.name, `${t.mp} MP`, () => choose(m, t, null), { disabled:m.mp < t.mp, preview:{ def:t, members:[m] }, tip:() => techTip(t, [m], null) });
+    }
+    for (const c of COMBOS) {
+      if (!c.m.includes(m.id)) continue;
+      const mem = c.m.map(id => run.party.find(p => p.id === id));
+      if (mem.some(x => !x)) continue;
+      const known = save.codex.includes(c.id);
+      const ok = mem.every(x => isReady(x) && x.mp >= c.mp);
+      const partners = mem.filter(x => x !== m).map(x => x.name).join(' + ');
+      btn(known ? c.name : '???', `${c.m.length === 3 ? 'Triple' : 'Dual'} w/ ${partners} · ${c.mp} MP each`, () => choose(m, c, c),
+        { disabled:!ok, cls:known ? 'combo' : 'combo new', preview:known ? { def:c, members:mem } : null, tip:() => techTip(c, mem, c) });
+    }
+  }
+  btn(waitMode ? 'Mode: Wait' : 'Mode: Active', waitMode ? 'time pauses while targeting' : 'time slows while targeting', () => { waitMode = !waitMode; }, { cls:'mode', nokey:true });
+  refreshHover();
+}
+
+// ================= tooltips =================
+const tipEl = document.getElementById('tip');
+let lastClient = { x:-1, y:-1 };
+document.addEventListener('mousemove', e => { lastClient = { x:e.clientX, y:e.clientY }; refreshHover(); });
+
+function refreshHover(){
+  const el = lastClient.x < 0 ? null : document.elementFromPoint(lastClient.x, lastClient.y);
+  const host = el && el.closest('.has-tip');
+  previewDef = (host && host._preview) || null;
+  const html = host && host._tip ? host._tip() : null;
+  if (!html) { tipEl.classList.add('hidden'); return; }
+  tipEl.innerHTML = html;
+  tipEl.classList.remove('hidden');
+  const w = tipEl.offsetWidth, h = tipEl.offsetHeight;
+  let x = lastClient.x + 14, y = lastClient.y - h - 12;
+  if (x + w > innerWidth - 8) x = lastClient.x - w - 14;
+  if (y < 8) y = lastClient.y + 18;
+  tipEl.style.left = x + 'px'; tipEl.style.top = y + 'px';
+}
+
+const nameTag = m => `<span style="color:${m.color}">${m.name}</span>`;
+const elemTag = e => `<span style="color:${ELEM_COLOR[e]}">${ELEM_NAME[e]}</span>`;
+
+function shapeText(d){
+  return {
+    single:'Single enemy', circle:`Blast around the target (radius ${d.radius})`, line:'Piercing line through the target',
+    self:`Everything around the caster (radius ${d.radius})`, all:'All enemies', ally:'One ally', allies:'All allies',
+    party:'Whole party', selfbuff:'Self',
+  }[d.shape];
+}
+
+function memberStatus(m, cost){
+  if (m.hp <= 0) return `${nameTag(m)}: <span class="tt-bad">KO</span>`;
+  if (m.mp < cost) return `${nameTag(m)}: <span class="tt-bad">needs ${cost} MP (has ${m.mp})</span>`;
+  if (m.queued) return `${nameTag(m)}: <span class="tt-warn">acting</span>`;
+  if (m.atb < 100) return `${nameTag(m)}: <span class="tt-warn">gauge ${Math.floor(m.atb)}%</span>`;
+  return `${nameTag(m)}: <span class="tt-ok">ready</span>`;
+}
+
+function techTip(def, members, combo){
+  const known = !combo || save.codex.includes(combo.id);
+  const rows = [];
+  const cost = def.mp ? `${def.mp} MP${combo ? ' each' : ''}` : 'Free';
+  rows.push(`<div class="tt-h"><b>${known ? def.name : '???'}</b><span class="tt-mp">${cost}</span></div>`);
+  if (combo) rows.push(`<div class="tt-sub">${combo.m.length === 3 ? 'Triple' : 'Dual'} Tech · ${members.map(nameTag).join(' + ')}</div>`);
+
+  if (!known) {
+    rows.push(`<div>Undiscovered combo. Have every partner ready at the same time and fire it to reveal its effect and record it in the Codex.</div>`);
+  } else {
+    if (def.desc) rows.push(`<div>${def.desc}</div>`);
+    const facts = [`<b>Target:</b> ${shapeText(def)}`];
+    const els = elemsOf(def);
+    if (els.length) facts.push(`<b>Element:</b> ${els.map(elemTag).join(' / ')}`);
+    const power = powerOf(def, members);
+    if (def.pow && !def.heal && def.shape !== 'allies') facts.push(`<b>Damage:</b> ~${Math.round(power * def.pow)} before defense${els.length ? ' (x1.6 on weakness)' : ''}`);
+    if (def.heal) facts.push(`<b>Heals:</b> ~${Math.round(power * def.pow * 2)}${def.shape === 'allies' ? ' to each ally' : ''}`);
+    if (def.healPct) facts.push(`<b>Heals:</b> ${Math.round(def.healPct * 100)}% max HP to the party`);
+    if (def.shield) facts.push(`<b>Barrier:</b> ${def.shield}s, halves damage taken`);
+    if (def.shieldAll) facts.push(`<b>Barrier:</b> ${def.shieldAll}s on the whole party, halves damage taken`);
+    if (def.buffAll) facts.push(`<b>Party buff:</b> ${Object.entries(def.buffAll).map(([k, s]) => `<span style="color:${BUFFS[k].color}">${BUFFS[k].name}</span> (${BUFFS[k].desc}, ${s}s)`).join(', ')}`);
+    if (def.stagger) facts.push(`<b>Stagger:</b> knocks ${def.stagger}% off each hit enemy's gauge`);
+    rows.push(`<div class="tt-facts">${facts.join('<br>')}</div>`);
+  }
+
+  const solo = members.length === 1 ? members[0] : null;
+  if (solo && solo.id === 'kai' && def === TECHS.attack) rows.push(`<div class="tt-pas">Battle Rhythm: +5 MP when this lands</div>`);
+  if (solo && solo.id === 'zed') rows.push(`<div class="tt-pas">Overcharge: +2 MP per enemy hit</div>`);
+  if (def !== TECHS.attack && !members.some(m => m.id === 'lumi') && run.party.some(m => m.id === 'lumi' && m.hp > 0))
+    rows.push(`<div class="tt-pas">Devotion: Lumi gains 3 MP</div>`);
+  if (run.party.some(m => m.id === 'lyra' && m.hp > 0) && members.some(m => m.id !== 'lyra' && isBuffed(m)))
+    rows.push(`<div class="tt-pas">Encore: Lyra gains 2 MP</div>`);
+
+  if (combo) rows.push(`<div class="tt-facts">${members.map(m => memberStatus(m, def.mp)).join('<br>')}</div>`);
+  else if (solo && solo.mp < def.mp) rows.push(`<div class="tt-bad">Not enough MP (has ${solo.mp})</div>`);
+  return rows.join('');
+}
+
+function cardTip(m){
+  const c = CHARS[m.id];
+  return `<div class="tt-h"><b style="color:${m.color}">${m.name}</b><span class="tt-mp">${c.role} · ${elemTag(c.elem)}</span></div>
+    <div class="tt-facts">ATK ${m.atk} · MAG ${m.mag} · DEF ${m.def} · SPD ${m.spd}</div>
+    <div class="tt-pas"><b>${c.passive.name}:</b> ${c.passive.desc}</div>
+    <div class="tt-facts"><b>Techs:</b> ${c.techs.map(t => TECHS[t].name).join(', ')}</div>`;
+}
+
+// ================= input =================
+function updateMouse(e){
+  const r = cv.getBoundingClientRect();
+  mouse.x = (e.clientX - r.left) * (W / r.width);
+  mouse.y = (e.clientY - r.top) * (H / r.height);
+}
+cv.addEventListener('mousemove', updateMouse);
+cv.addEventListener('mouseleave', () => { mouse.x = mouse.y = -999; });
+cv.addEventListener('contextmenu', e => e.preventDefault());
+cv.addEventListener('mousedown', e => {
+  updateMouse(e);
+  if (state !== 'battle' || !battle) return;
+  if (e.button === 2) { battle.targeting = null; return; }
+  if (battle.targeting) {
+    const t = hoverTarget();
+    if (t) commit(battle.targeting.members, battle.targeting.def, t, battle.targeting.combo);
+  }
+});
+
+function hoverTarget(){
+  if (!battle || !battle.targeting) return null;
+  if (battle.targeting.def.shape === 'ally') return run.party.find(m => Math.hypot(m.x - mouse.x, m.y - mouse.y) < m.r + 10) || null;
+  return hoveredEnemy(aliveEnemies());
+}
+function hoveredEnemy(list){
+  let best = null, bd = Infinity;
+  for (const e of list) { const d = Math.hypot(e.x - mouse.x, e.y - mouse.y); if (d < e.r + 14 && d < bd) { bd = d; best = e; } }
+  return best;
+}
+
+addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','Tab'].includes(e.code)) e.preventDefault();
+  if (e.code === 'Escape') { if (battle && battle.targeting) battle.targeting = null; else if (codexOpen) closeCodex(); }
+  if (e.code === 'Tab' && battle) {
+    const r = readyMembers();
+    if (r.length > 1) { const i = r.findIndex(m => m.id === battle.activeId); battle.activeId = r[(i + 1) % r.length].id; battle.targeting = null; }
+  }
+  if (/^Digit[1-9]$/.test(e.code) && state === 'battle') { const b = menuButtons[+e.code.slice(5) - 1]; if (b) b.click(); }
+  if (e.code === 'KeyC' && (state === 'explore' || state === 'title')) { codexOpen ? closeCodex() : openCodex(); }
+});
+addEventListener('keyup', e => { keys[e.code] = false; });
+addEventListener('blur', () => { keys = {}; });
+
+document.getElementById('startBtn').onclick = newRun;
+document.getElementById('codexBtn').onclick = openCodex;
+
+// ================= update =================
+function say(x, y, text, color, size = 16, dur = 1){ texts.push({ x, y, text, color, size, t:0, dur }); }
+
+function update(dt){
+  T += dt;
+  for (let i = timers.length - 1; i >= 0; i--) {
+    timers[i].t -= dt;
+    if (timers[i].t <= 0) { const r = timers[i].r; timers.splice(i, 1); r(); }
+  }
+  const ents = run ? [...run.party, ...enemies] : [];
+  for (const e of ents) {
+    if (e.hitFlash > 0) e.hitFlash -= dt;
+    const tw = e.tween;
+    if (!tw) continue;
+    tw.t += dt;
+    const p = Math.min(1, tw.t / tw.dur), k = 1 - (1 - p) * (1 - p);
+    e.x = tw.fx + (tw.tx - tw.fx) * k; e.y = tw.fy + (tw.ty - tw.fy) * k;
+    if (p >= 1) { e.tween = null; tw.res(); }
+  }
+  effects = effects.filter(f => (f.t += dt) < f.dur);
+  texts = texts.filter(t => (t.t += dt) < t.dur);
+  if (banner && (banner.t += dt) >= banner.dur) banner = null;
+  if (techBanner && (techBanner.t += dt) >= techBanner.dur) techBanner = null;
+  shake = Math.max(0, shake - dt * 25);
+
+  if (state === 'explore' && !codexOpen) updateExplore(dt);
+  else if (state === 'battle' && battle) updateBattle(dt);
+}
+
+// ================= render =================
+function prerenderRoom(){
+  const era = ERAS[run.era];
+  roomCv.width = W; roomCv.height = H;
+  const c = roomCv.getContext('2d');
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    const px = x * TILE, py = y * TILE, v = grid[y][x];
+    c.fillStyle = era.floor[(x + y) % 2]; c.fillRect(px, py, TILE, TILE);
+    c.fillStyle = 'rgba(255,255,255,0.035)';
+    for (let k = 0; k < 3; k++) c.fillRect(px + Math.random() * 28, py + Math.random() * 28, 3, 3);
+    if (v === 1) {
+      c.fillStyle = era.wall; c.fillRect(px, py, TILE, TILE);
+      c.fillStyle = 'rgba(255,255,255,0.07)'; c.fillRect(px, py, TILE, 4);
+      c.fillStyle = 'rgba(0,0,0,0.25)'; c.fillRect(px, py + TILE - 4, TILE, 4);
+    } else if (v === 3) drawObstacle(c, era.obs, px, py);
+  }
+}
+
+function drawObstacle(c, kind, px, py){
+  const cx = px + TILE / 2, cy = py + TILE / 2;
+  c.fillStyle = 'rgba(0,0,0,0.25)';
+  c.beginPath(); c.ellipse(cx + 3, cy + 10, 14, 6, 0, 0, 7); c.fill();
+  if (kind === 'tree') {
+    c.fillStyle = '#5a3b22'; c.fillRect(cx - 3, cy, 6, 12);
+    c.fillStyle = '#2a5f26'; c.beginPath(); c.arc(cx, cy - 2, 15, 0, 7); c.fill();
+    c.fillStyle = '#3c8236'; c.beginPath(); c.arc(cx - 4, cy - 6, 8, 0, 7); c.fill();
+  } else if (kind === 'pillar') {
+    c.fillStyle = '#77736c'; c.fillRect(px + 4, py + 2, TILE - 8, TILE - 4);
+    c.fillStyle = '#9a958c'; c.fillRect(px + 2, py, TILE - 4, 6);
+    c.fillStyle = 'rgba(0,0,0,0.2)'; c.fillRect(px + TILE - 10, py + 6, 6, TILE - 8);
+  } else {
+    c.fillStyle = '#3a4a5c'; c.fillRect(px + 2, py + 2, TILE - 4, TILE - 4);
+    c.strokeStyle = '#5a6e86'; c.lineWidth = 2; c.strokeRect(px + 3, py + 3, TILE - 6, TILE - 6);
+    c.beginPath(); c.moveTo(px + 4, py + 4); c.lineTo(px + TILE - 4, py + TILE - 4); c.moveTo(px + TILE - 4, py + 4); c.lineTo(px + 4, py + TILE - 4); c.stroke();
+  }
+}
+
+function drawGate(){
+  const x = (COLS - 1) * TILE, y = 9 * TILE;
+  if (!gateOpen) {
+    ctx.fillStyle = '#2a1840'; ctx.fillRect(x, y, TILE, TILE * 2);
+    ctx.strokeStyle = '#7a4fc0'; ctx.lineWidth = 3;
+    for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(x + 5 + i * 7, y + 2); ctx.lineTo(x + 5 + i * 7, y + TILE * 2 - 2); ctx.stroke(); }
+  } else {
+    const g = ctx.createRadialGradient(x + 16, y + 32, 2, x + 16, y + 32, 34 + Math.sin(T * 4) * 4);
+    g.addColorStop(0, '#ffffff'); g.addColorStop(0.3, '#b98bff'); g.addColorStop(0.7, '#4fd8ff'); g.addColorStop(1, 'rgba(79,216,255,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(x + 16, y + 32, 22, 36, 0, 0, 7); ctx.fill();
+  }
+}
+
+function drawShadow(x, y, r){
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.beginPath(); ctx.ellipse(x, y + r * 0.8, r, r * 0.4, 0, 0, 7); ctx.fill();
+}
+
+function drawMember(m){
+  const ko = m.hp <= 0, r = m.r;
+  drawShadow(m.x, m.y, r);
+  if (state === 'battle' && isReady(m)) {
+    ctx.strokeStyle = `rgba(255,213,74,${0.5 + 0.4 * Math.sin(T * 8)})`; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(m.x, m.y, r + 6, 0, 7); ctx.stroke();
+  }
+  ctx.save(); ctx.translate(m.x, m.y);
+  if (ko) ctx.scale(1.15, 0.6);
+  ctx.fillStyle = ko ? '#666' : m.color;
+  ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.beginPath(); ctx.arc(-4, -4, r * 0.45, 0, 7); ctx.fill();
+  if (!ko) {
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    switch (m.id) {
+      case 'kai': for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(i * 6 - 4, -r + 3); ctx.lineTo(i * 6, -r - 7); ctx.lineTo(i * 6 + 4, -r + 3); ctx.fill(); } break;
+      case 'mira': ctx.fillStyle = '#1e3a8a'; ctx.beginPath(); ctx.moveTo(-11, -r + 4); ctx.lineTo(3, -r - 14); ctx.lineTo(11, -r + 4); ctx.fill(); break;
+      case 'rook': ctx.fillStyle = '#6b6b6b'; ctx.fillRect(-r, -r + 2, r * 2, 6); break;
+      case 'zed': ctx.fillStyle = '#222'; ctx.fillRect(-r + 2, -3, r * 2 - 4, 5); break;
+      case 'lumi': ctx.strokeStyle = '#ffe94a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(0, -r - 5, 9, 3, 0, 0, 7); ctx.stroke(); break;
+      case 'lyra':
+        ctx.fillStyle = '#7c3aed'; ctx.beginPath(); ctx.ellipse(-2, -r + 2, 12, 5, -0.25, 0, 7); ctx.fill();
+        ctx.strokeStyle = '#fde68a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(6, -r); ctx.quadraticCurveTo(14, -r - 10, 9, -r - 16); ctx.stroke();
+        break;
+    }
+    ctx.fillStyle = m.id === 'zed' ? '#7fe3ff' : '#111';
+    const fx = m.face.x * 4, fy = m.face.y * 4, px = -m.face.y * 4, py = m.face.x * 4;
+    ctx.beginPath(); ctx.arc(fx + px, fy + py, 2, 0, 7); ctx.arc(fx - px, fy - py, 2, 0, 7); ctx.fill();
+  } else {
+    ctx.strokeStyle = '#222'; ctx.lineWidth = 2;
+    for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(s * 4 - 2, -2); ctx.lineTo(s * 4 + 2, 2); ctx.moveTo(s * 4 + 2, -2); ctx.lineTo(s * 4 - 2, 2); ctx.stroke(); }
+  }
+  ctx.restore();
+  if (!ko) {
+    const active = Object.keys(BUFFS).filter(k => m.buffs[k] > 0);
+    active.forEach((k, i) => {
+      const a = T * 3 + i * Math.PI;
+      ctx.fillStyle = BUFFS[k].color;
+      ctx.beginPath(); ctx.arc(m.x + Math.cos(a) * (r + 7), m.y + Math.sin(a) * (r + 7) * 0.6, 3, 0, 7); ctx.fill();
+    });
+  }
+  if (m.shield > 0 && !ko) {
+    ctx.strokeStyle = 'rgba(159,216,255,0.8)'; ctx.fillStyle = 'rgba(159,216,255,0.15)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(m.x, m.y, r + 5, 0, 7); ctx.fill(); ctx.stroke();
+  }
+  if (state === 'battle' && battle && battle.activeId === m.id) {
+    const bob = Math.sin(T * 6) * 2;
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.moveTo(m.x - 6, m.y - r - 18 + bob); ctx.lineTo(m.x + 6, m.y - r - 18 + bob); ctx.lineTo(m.x, m.y - r - 10 + bob); ctx.fill();
+  }
+}
+
+function drawEnemy(e, dim){
+  const r = e.r;
+  ctx.globalAlpha = dim ? 0.45 : 1;
+  drawShadow(e.x, e.y, r);
+  ctx.save(); ctx.translate(e.x, e.y);
+  ctx.fillStyle = e.color; ctx.strokeStyle = 'rgba(0,0,0,0.65)'; ctx.lineWidth = 2;
+  const ang = Math.atan2(e.face.y, e.face.x);
+  ctx.beginPath();
+  switch (e.shape) {
+    case 'tri':
+      ctx.rotate(ang);
+      ctx.moveTo(r * 1.25, 0); ctx.lineTo(-r, -r * 0.9); ctx.lineTo(-r * 0.6, 0); ctx.lineTo(-r, r * 0.9); ctx.closePath();
+      break;
+    case 'round': ctx.arc(0, 0, r, 0, 7); break;
+    case 'square': ctx.roundRect(-r, -r, r * 2, r * 2, 4); break;
+    case 'diamond': ctx.rotate(Math.sin(T * 2 + e.x) * 0.3); ctx.moveTo(0, -r * 1.2); ctx.lineTo(r, 0); ctx.lineTo(0, r * 1.2); ctx.lineTo(-r, 0); ctx.closePath(); break;
+    case 'wing': {
+      const f = Math.sin(T * 10 + e.x) * 0.4;
+      ctx.moveTo(-r * 0.5, 0); ctx.lineTo(-r * 1.6, -r * (0.8 + f)); ctx.lineTo(-r * 1.2, r * 0.3); ctx.closePath();
+      ctx.moveTo(r * 0.5, 0); ctx.lineTo(r * 1.6, -r * (0.8 + f)); ctx.lineTo(r * 1.2, r * 0.3); ctx.closePath();
+      ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.arc(0, 0, r * 0.8, 0, 7);
+      break;
+    }
+  }
+  ctx.fill(); ctx.stroke();
+  if (e.shape === 'round') { ctx.beginPath(); ctx.moveTo(0, -r); ctx.lineTo(0, r); ctx.stroke(); }
+  if (e.hitFlash > 0) { ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.fill(); }
+  if (e.shape === 'tri') { ctx.fillStyle = '#ff3030'; ctx.beginPath(); ctx.arc(r * 0.45, -r * 0.3, 2.2, 0, 7); ctx.arc(r * 0.45, r * 0.3, 2.2, 0, 7); ctx.fill(); }
+  else {
+    ctx.setTransform(1, 0, 0, 1, e.x, e.y);
+    const fx = e.face.x * r * 0.35, fy = e.face.y * r * 0.35, px = -e.face.y * r * 0.3, py = e.face.x * r * 0.3;
+    ctx.fillStyle = '#ff3030'; ctx.beginPath(); ctx.arc(fx + px, fy + py, 2.4, 0, 7); ctx.arc(fx - px, fy - py, 2.4, 0, 7); ctx.fill();
+  }
+  ctx.restore();
+  if (e.boss) {
+    ctx.fillStyle = '#ffd54a';
+    for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(e.x + i * 8 - 4, e.y - r - 2); ctx.lineTo(e.x + i * 8, e.y - r - 12); ctx.lineTo(e.x + i * 8 + 4, e.y - r - 2); ctx.fill(); }
+  }
+  if (state === 'battle' && !dim) {
+    const w = Math.max(30, r * 2), y = e.y - r - (e.boss ? 20 : 10);
+    ctx.fillStyle = '#000a'; ctx.fillRect(e.x - w / 2, y, w, 5);
+    ctx.fillStyle = '#ef4444'; ctx.fillRect(e.x - w / 2, y, w * e.hp / e.maxhp, 5);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawEffects(){
+  for (const f of effects) {
+    const p = f.t / f.dur;
+    ctx.save();
+    switch (f.type) {
+      case 'burst':
+        ctx.globalAlpha = 1 - p; ctx.fillStyle = f.color;
+        ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (0.4 + p * 0.8), 0, 7); ctx.fill();
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+        for (let i = 0; i < 8; i++) {
+          const a = i / 8 * Math.PI * 2 + f.seed * 6;
+          ctx.beginPath(); ctx.moveTo(f.x + Math.cos(a) * f.r * p, f.y + Math.sin(a) * f.r * p);
+          ctx.lineTo(f.x + Math.cos(a) * f.r * (p + 0.5), f.y + Math.sin(a) * f.r * (p + 0.5)); ctx.stroke();
+        }
+        break;
+      case 'ring':
+        ctx.beginPath(); ctx.arc(f.x, f.y, f.r * Math.min(1, p * 1.8), 0, 7);
+        ctx.globalAlpha = (1 - p) * 0.3; ctx.fillStyle = f.color; ctx.fill();
+        ctx.globalAlpha = 1 - p; ctx.strokeStyle = f.color; ctx.lineWidth = 6 * (1 - p) + 2; ctx.stroke();
+        break;
+      case 'beam':
+        ctx.globalAlpha = 1 - p; ctx.lineCap = 'round';
+        ctx.strokeStyle = f.color; ctx.lineWidth = f.w * (1 - p * 0.5);
+        ctx.beginPath(); ctx.moveTo(f.x0, f.y0); ctx.lineTo(f.x1, f.y1); ctx.stroke();
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = f.w * 0.3 * (1 - p); ctx.stroke();
+        break;
+      case 'flash':
+        ctx.globalAlpha = 0.35 * (1 - p); ctx.fillStyle = f.color; ctx.fillRect(0, 0, W, H);
+        break;
+      case 'poof':
+        ctx.globalAlpha = 1 - p; ctx.fillStyle = f.color;
+        for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2; ctx.beginPath(); ctx.arc(f.x + Math.cos(a) * 34 * p, f.y + Math.sin(a) * 34 * p, 5 * (1 - p) + 1, 0, 7); ctx.fill(); }
+        break;
+      case 'glow':
+        ctx.globalAlpha = 0.9 * (1 - p); ctx.strokeStyle = f.color; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.arc(f.ent.x, f.ent.y, f.ent.r + 4 + p * 18, 0, 7); ctx.stroke();
+        break;
+      case 'warn':
+        ctx.globalAlpha = 0.4 + 0.4 * Math.abs(Math.sin(p * 12));
+        ctx.setLineDash([8, 6]); ctx.strokeStyle = '#ff3040'; ctx.lineWidth = 3; ctx.fillStyle = 'rgba(255,40,60,0.12)';
+        ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, 7); ctx.fill(); ctx.stroke();
+        break;
+      case 'notes':
+        ctx.globalAlpha = 1 - p; ctx.fillStyle = f.color; ctx.font = 'bold 14px Segoe UI'; ctx.textAlign = 'center';
+        for (let i = 0; i < 3; i++) ctx.fillText(i % 2 ? '\u266B' : '\u266A', f.ent.x + Math.sin(i * 2.1 + f.seed + p * 4) * 14, f.ent.y - 12 - p * 30 - i * 8);
+        break;
+      case 'sparkle':
+        ctx.globalAlpha = 1 - p; ctx.fillStyle = f.color;
+        for (let i = 0; i < 5; i++) {
+          const ox = Math.sin(i * 2.3 + f.seed) * 14, oy = -p * 28 - i * 4;
+          ctx.fillRect(f.ent.x + ox - 1, f.ent.y + oy - 4, 2, 8); ctx.fillRect(f.ent.x + ox - 4, f.ent.y + oy - 1, 8, 2);
+        }
+        break;
+    }
+    ctx.restore();
+  }
+}
+
+function drawPreview(def, members, target){
+  const caster = members[0];
+  ctx.save();
+  ctx.setLineDash([6, 5]); ctx.lineWidth = 2;
+  const col = ELEM_COLOR[elemsOf(def)[0] || 'none'];
+  ctx.strokeStyle = col; ctx.fillStyle = col + '22';
+  if (def.shape === 'circle' && target) { ctx.beginPath(); ctx.arc(target.x, target.y, def.radius, 0, 7); ctx.fill(); ctx.stroke(); }
+  if (def.shape === 'self') { ctx.beginPath(); ctx.arc(caster.x, caster.y, def.radius, 0, 7); ctx.fill(); ctx.stroke(); }
+  if (def.shape === 'line' && target) {
+    const g = lineGeom(caster, target), hw = def.width / 2;
+    ctx.beginPath();
+    ctx.moveTo(g.x0 - g.uy * hw, g.y0 + g.ux * hw); ctx.lineTo(g.x1 - g.uy * hw, g.y1 + g.ux * hw);
+    ctx.lineTo(g.x1 + g.uy * hw, g.y1 - g.ux * hw); ctx.lineTo(g.x0 + g.uy * hw, g.y0 - g.ux * hw); ctx.closePath();
+    ctx.fill(); ctx.stroke();
+  }
+  ctx.setLineDash([]);
+  for (const e of computeHits(def, caster, target)) {
+    ctx.strokeStyle = '#ff5050'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(e.x, e.y, e.r + 6 + Math.sin(T * 10) * 1.5, 0, 7); ctx.stroke();
+  }
+  if (['ally','allies','party','selfbuff'].includes(def.shape)) {
+    const list = def.shape === 'ally' ? (target ? [target] : []) : def.shape === 'selfbuff' ? [caster] : alivePartyOf();
+    for (const m of list) { ctx.strokeStyle = '#4ade80'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(m.x, m.y, m.r + 7, 0, 7); ctx.stroke(); }
+  }
+  for (const m of members) { ctx.strokeStyle = m.color; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(m.x, m.y, m.r + 10, 0, 7); ctx.stroke(); }
+  ctx.restore();
+}
+
+function drawTooltip(){
+  const list = state === 'battle' && battle ? aliveEnemies() : enemies.filter(e => e.hp > 0);
+  const e = hoveredEnemy(list);
+  if (!e) return;
+  const knownWeak = save.weak.includes(e.type);
+  const lines = [e.name, `HP ${e.hp}/${e.maxhp}`, `Weak: ${knownWeak ? ELEM_NAME[e.weak] : '???'}`];
+  ctx.font = '12px Segoe UI';
+  const w = Math.max(...lines.map(l => ctx.measureText(l).width)) + 14;
+  let x = mouse.x + 14, y = mouse.y + 10;
+  if (x + w > W) x = mouse.x - w - 10;
+  ctx.fillStyle = 'rgba(10,10,25,0.9)'; ctx.strokeStyle = '#555'; ctx.lineWidth = 1;
+  ctx.fillRect(x, y, w, 52); ctx.strokeRect(x, y, w, 52);
+  lines.forEach((l, i) => {
+    ctx.fillStyle = i === 0 ? '#fff' : i === 2 && knownWeak ? ELEM_COLOR[e.weak] : '#bbb';
+    ctx.fillText(l, x + 7, y + 15 + i * 15);
+  });
+}
+
+function drawTexts(){
+  ctx.textAlign = 'center';
+  for (const t of texts) {
+    const p = t.t / t.dur;
+    ctx.globalAlpha = 1 - p * p;
+    ctx.font = `bold ${t.size}px Segoe UI`;
+    const y = t.y - p * 30;
+    ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.8)'; ctx.strokeText(t.text, t.x, y);
+    ctx.fillStyle = t.color; ctx.fillText(t.text, t.x, y);
+  }
+  ctx.globalAlpha = 1; ctx.textAlign = 'left';
+}
+
+function drawBanners(){
+  ctx.textAlign = 'center';
+  if (banner) {
+    const p = banner.t / banner.dur;
+    ctx.globalAlpha = p < 0.15 ? p / 0.15 : p > 0.75 ? (1 - p) / 0.25 : 1;
+    ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(0, H / 2 - 60, W, 110);
+    ctx.font = 'bold 44px Segoe UI'; ctx.fillStyle = '#ffd54a'; ctx.fillText(banner.text, W / 2, H / 2);
+    ctx.font = '18px Segoe UI'; ctx.fillStyle = '#ddd'; ctx.fillText(banner.sub, W / 2, H / 2 + 32);
+  }
+  if (techBanner) {
+    const p = techBanner.t / techBanner.dur;
+    ctx.globalAlpha = p < 0.1 ? p / 0.1 : p > 0.8 ? (1 - p) / 0.2 : 1;
+    const g = ctx.createLinearGradient(0, 0, W, 0);
+    techBanner.colors.forEach((c, i) => g.addColorStop(i / Math.max(1, techBanner.colors.length - 1), c));
+    ctx.fillStyle = g; ctx.globalAlpha *= 0.85; ctx.fillRect(0, 30, W, 54);
+    ctx.globalAlpha = ctx.globalAlpha / 0.85;
+    ctx.font = 'bold 32px Segoe UI'; ctx.lineWidth = 4; ctx.strokeStyle = '#000';
+    ctx.strokeText(techBanner.text.toUpperCase(), W / 2, 68); ctx.fillStyle = '#fff'; ctx.fillText(techBanner.text.toUpperCase(), W / 2, 68);
+  }
+  ctx.globalAlpha = 1; ctx.textAlign = 'left';
+}
+
+function drawHud(){
+  ctx.font = 'bold 13px Segoe UI'; ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(6, 6, 250, 22);
+  ctx.fillStyle = '#eee';
+  ctx.fillText(`${ERAS[run.era].name}  ·  Room ${run.room + 1}/${ROOMS_PER_ERA}${state === 'battle' ? '  ·  BATTLE' : ''}`, 12, 22);
+}
+
+function draw(){
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+  if (!run) return;
+  if (shake > 0) ctx.translate(rand(-shake, shake), rand(-shake, shake));
+  ctx.drawImage(roomCv, 0, 0);
+  drawGate();
+  if (state === 'battle' && battle) { ctx.fillStyle = 'rgba(20,0,40,0.28)'; ctx.fillRect(0, 0, W, H); }
+
+  const inBattle = new Set(battle ? battle.enemies : []);
+  const ents = [...enemies.filter(e => e.hp > 0), ...run.party].sort((a, b) => a.y - b.y);
+  for (const e of ents) {
+    if (e.isParty) drawMember(e);
+    else drawEnemy(e, state === 'battle' && !inBattle.has(e));
+  }
+  drawEffects();
+
+  if (state === 'battle' && battle) {
+    if (battle.targeting) {
+      const t = hoverTarget();
+      drawPreview(battle.targeting.def, battle.targeting.members, t);
+      cv.style.cursor = t ? 'pointer' : 'crosshair';
+    } else {
+      cv.style.cursor = 'default';
+      if (previewDef && !needsTarget(previewDef.def.shape)) drawPreview(previewDef.def, previewDef.members, null);
+    }
+  } else cv.style.cursor = 'default';
+
+  drawTexts();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  drawHud();
+  drawBanners();
+  drawTooltip();
+}
+
+// ================= loop =================
+let last = performance.now();
+function frame(now){
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  update(dt); draw(); updatePanel();
+  requestAnimationFrame(frame);
+}
+refreshTitleStats();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
